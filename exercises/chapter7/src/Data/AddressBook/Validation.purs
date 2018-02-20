@@ -1,7 +1,7 @@
 module Data.AddressBook.Validation where
 
 import Prelude
-import Data.AddressBook (Address(..), Person(..), PhoneNumber(..), address, person, phoneNumber)
+import Data.AddressBook (Address(Address), Person(Person), PhoneNumber(PhoneNumber), address, person, phoneNumber)
 import Data.Either (Either(..))
 import Data.String (length)
 import Data.String.Regex (Regex, test, regex)
@@ -11,6 +11,13 @@ import Data.Validation.Semigroup (V, unV, invalid)
 import Partial.Unsafe (unsafePartial)
 
 type Errors = Array String
+
+------------------- medium -------------------
+nonEmpty' :: String -> String -> V Errors Unit
+nonEmpty' field value = matches field nonWhiteSpaceRegex value where
+  nonWhiteSpaceRegex = unsafePartial
+    case regex "\\S+" noFlags of Right r -> r
+----------------------------------------------
 
 nonEmpty :: String -> String -> V Errors Unit
 nonEmpty field "" = invalid ["Field '" <> field <> "' cannot be empty"]
@@ -34,23 +41,32 @@ matches :: String -> Regex -> String -> V Errors Unit
 matches _     regex value | test regex value = pure unit
 matches field _     _     = invalid ["Field '" <> field <> "' did not match the required format"]
 
+-------------------- easy --------------------
+stateRegex :: Regex
+stateRegex = unsafePartial
+  case regex "^\\w{2}$" noFlags of Right r -> r
+
 validateAddress :: Address -> V Errors Address
 validateAddress (Address o) =
   address <$> (nonEmpty "Street" o.street *> pure o.street)
           <*> (nonEmpty "City"   o.city   *> pure o.city)
-          <*> (lengthIs "State" 2 o.state *> pure o.state)
+          -- <*> (lengthIs "State" 2 o.state *> pure o.state)
+          <*> (matches "State" stateRegex o.state *> pure o.state)
+----------------------------------------------
 
 validatePhoneNumber :: PhoneNumber -> V Errors PhoneNumber
 validatePhoneNumber (PhoneNumber o) =
   phoneNumber <$> pure o."type"
               <*> (matches "Number" phoneNumberRegex o.number *> pure o.number)
 
+------------------- medium -------------------
 validatePerson :: Person -> V Errors Person
 validatePerson (Person o) =
   person <$> (nonEmpty "First Name" o.firstName *> pure o.firstName)
          <*> (nonEmpty "Last Name"  o.lastName  *> pure o.lastName)
-         <*> validateAddress o.homeAddress
+         <*> traverse validateAddress o.homeAddress
          <*> (arrayNonEmpty "Phone Numbers" o.phones *> traverse validatePhoneNumber o.phones)
+----------------------------------------------
 
 validatePerson' :: Person -> Either Errors Person
 validatePerson' p = unV Left Right $ validatePerson p
