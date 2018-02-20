@@ -5,24 +5,24 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Except (runExcept)
-import Data.AddressBook (Address(..), Person(..), PhoneNumber(..), examplePerson)
-import Data.AddressBook.Validation (Errors, validatePerson')
-import Data.Array ((..), length, modifyAt, zipWith)
-import Data.Either (Either(..))
-import Data.Foldable (for_)
-import Data.Foreign (ForeignError, readString, toForeign)
-import Data.Foreign.Index (index)
-import Data.Maybe (fromJust, fromMaybe)
-import Data.List.NonEmpty (NonEmptyList)
-import DOM (DOM())
+import Control.MonadZero (guard)
+import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Types (htmlDocumentToDocument)
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
 import DOM.Node.Types (ElementId(..), documentToNonElementParentNode)
+import Data.AddressBook (Address(..), Person(..), PhoneNumber(..), examplePerson)
+import Data.AddressBook.Validation (Errors, validatePerson', Field(..), ValidationError(..))
+import Data.Array ((..), length, modifyAt, zipWith)
+import Data.Either (Either(..))
+import Data.Foldable (for_)
+import Data.Foreign (ForeignError, readString, toForeign)
+import Data.Foreign.Index (index)
+import Data.List.NonEmpty (NonEmptyList)
+import Data.Maybe (fromJust, fromMaybe)
 import Partial.Unsafe (unsafePartial)
-import React (ReactClass, ReadWrite, ReactState, Event, ReactThis,
-              createFactory, readState, spec, createClass, writeState)
+import React (ReactClass, ReadWrite, ReactState, Event, ReactThis, createFactory, readState, spec, createClass, writeState)
 import React.DOM as D
 import React.DOM.Props as P
 import ReactDOM (render)
@@ -68,13 +68,27 @@ addressBook = createClass $ spec initialState \ctx -> do
 
   let renderValidationError err = D.li' [ D.text err ]
 
+      ------------------- Medium -------------------
       renderValidationErrors [] = []
       renderValidationErrors xs =
-        [ D.div [ P.className "alert alert-danger" ]
-                [ D.ul' (map renderValidationError xs) ]
-        ]
+        xs <#> \err ->
+          D.div [ P.className "alert alert-danger" ]
+                [ D.text err ]
+        -- [ D.div [ P.className "alert alert-danger" ]
+        --         [ D.ul' (map renderValidationError xs) ]
+        -- ]
+      ----------------------------------------------
 
-      formField name hint value update =
+      ------------------ Difficult -----------------
+      renderValidationErrors' [] _ = []
+      renderValidationErrors' xs field = do
+        -- match tag ของตนเองให้เจอ
+        ValidationError err fld <- xs
+        guard $ fld == field
+        pure (D.div [ P.className "alert alert-danger" ]
+                    [ D.text err ])
+
+      formField name hint value update field =
         D.div [ P.className "form-group" ]
               [ D.label [ P.className "col-sm-2 control-label" ]
                         [ D.text name ]
@@ -86,11 +100,15 @@ addressBook = createClass $ spec initialState \ctx -> do
                                 , P.onChange (updateAppState ctx update)
                                 ] []
                       ]
+              , D.div [ P.className "col-sm-5" ]
+                      (renderValidationErrors' errors field)
               ]
+      ----------------------------------------------
 
       renderPhoneNumber (PhoneNumber phone) index =
-        formField (show phone."type") "XXX-XXX-XXXX" phone.number \s ->
-          Person $ person { phones = fromMaybe person.phones $ modifyAt index (updatePhoneNumber s) person.phones }
+        formField (show phone."type") "XXX-XXX-XXXX" phone.number (\s ->
+          Person $ person { phones = fromMaybe person.phones $ modifyAt index (updatePhoneNumber s) person.phones })
+          (PhoneField phone."type")
 
       updateFirstName s = Person $ person { firstName = s }
       updateLastName  s = Person $ person { lastName  = s }
@@ -103,20 +121,20 @@ addressBook = createClass $ spec initialState \ctx -> do
 
   pure $
     D.div [ P.className "container" ]
+          -- [ D.div [ P.className "row" ]
+          --         (renderValidationErrors errors)
           [ D.div [ P.className "row" ]
-                  (renderValidationErrors errors)
-          , D.div [ P.className "row" ]
                   [ D.form [ P.className "form-horizontal" ] $
                            [ D.h3' [ D.text "Basic Information" ]
 
-                           , formField "First Name" "First Name" person.firstName updateFirstName
-                           , formField "Last Name"  "Last Name"  person.lastName  updateLastName
+                           , formField "First Name" "First Name" person.firstName updateFirstName FirstNameField
+                           , formField "Last Name"  "Last Name"  person.lastName  updateLastName LastNameField
 
                            , D.h3' [ D.text "Address" ]
 
-                           , formField "Street" "Street" address.street updateStreet
-                           , formField "City"   "City"   address.city   updateCity
-                           , formField "State"  "State"  address.state  updateState
+                           , formField "Street" "Street" address.street updateStreet StreetField
+                           , formField "City"   "City"   address.city   updateCity CityField
+                           , formField "State"  "State"  address.state  updateState StateField
 
                            , D.h3' [ D.text "Contact Information" ]
                            ]

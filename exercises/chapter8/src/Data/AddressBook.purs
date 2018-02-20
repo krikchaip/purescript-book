@@ -17,6 +17,8 @@ data PhoneType
   | CellPhone
   | OtherPhone
 
+derive instance eqPhoneType :: Eq PhoneType
+
 newtype PhoneNumber = PhoneNumber
   { "type" :: PhoneType
   , number :: String
@@ -39,13 +41,16 @@ person :: String -> String -> Address -> Array PhoneNumber -> Person
 person firstName lastName homeAddress phones =
   Person { firstName, lastName, homeAddress, phones }
 
+-------------------- Easy --------------------
 examplePerson :: Person
 examplePerson =
   person "John" "Smith"
          (address "123 Fake St." "FakeTown" "CA")
          [ phoneNumber HomePhone "555-555-5555"
          , phoneNumber CellPhone "555-555-0000"
+         , phoneNumber WorkPhone "999-999-9999" -- easy
          ]
+----------------------------------------------
 
 instance showAddress :: Show Address where
   show (Address o) = "Address " <>

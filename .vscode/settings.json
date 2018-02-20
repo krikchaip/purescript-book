@@ -1,13 +1,13 @@
 {
   "files.exclude": {
-    "bower_components": true,
-    "node_modules": true,
-    ".pulp-cache": true,
-    "output": true,
-    "generated-docs": true,
-    ".psc-package": true,
-    ".psc*": true,
-    ".purs*": true,
-    ".psa*": true
+    "**/bower_components": true,
+    "**/node_modules": true,
+    "**/.pulp-cache": true,
+    "**/output": true,
+    "**/generated-docs": true,
+    "**/.psc-package": true,
+    "**/.psc*": true,
+    "**/.purs*": true,
+    "**/.psa*": true
   }
 }
